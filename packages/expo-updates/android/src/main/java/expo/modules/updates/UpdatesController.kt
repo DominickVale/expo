@@ -26,6 +26,7 @@ import expo.modules.updates.loader.LoaderTask.LoaderTaskCallback
 import expo.modules.updates.manifest.UpdateManifest
 import expo.modules.updates.selectionpolicy.SelectionPolicy
 import expo.modules.updates.selectionpolicy.SelectionPolicyFactory
+import org.json.JSONObject
 import java.io.File
 import java.lang.ref.WeakReference
 
@@ -33,6 +34,7 @@ class UpdatesController private constructor(
   context: Context,
   var updatesConfiguration: UpdatesConfiguration
 ) {
+  var buildKey = "BUILD_KEY"
   private var reactNativeHost: WeakReference<ReactNativeHost>? = if (context is ReactApplication) {
     WeakReference((context as ReactApplication).reactNativeHost)
   } else {
@@ -164,13 +166,28 @@ class UpdatesController private constructor(
     if (!updatesConfiguration.isEnabled) {
       launcher = NoDatabaseLauncher(context, updatesConfiguration)
     }
-    if (updatesConfiguration.updateUrl == null || updatesConfiguration.scopeKey == null) {
+    val scopeKey = updatesConfiguration.scopeKey
+    if (updatesConfiguration.updateUrl == null || scopeKey == null) {
       throw AssertionError("expo-updates is enabled, but no valid URL is configured in AndroidManifest.xml. If you are making a release build for the first time, make sure you have run `expo publish` at least once.")
     }
     if (updatesDirectory == null) {
       launcher = NoDatabaseLauncher(context, updatesConfiguration, updatesDirectoryException)
       isEmergencyLaunch = true
     }
+
+    Log.i("ASDF","START")
+    val buildJSONString = databaseHolder.database.jsonDataDao()?.loadJSONStringForKey( buildKey ,scopeKey)
+    databaseHolder.releaseDatabase()
+
+    Log.i("ASDF","build data json: " + buildJSONString)
+    if(buildJSONString == null){
+        setBuildData(scopeKey)
+    } else if(!isBuildDataConsistent(buildJSONString)){
+        clearAllUpdates()
+        setBuildData(scopeKey)
+    }
+    Log.i("ASDF","DONE" )
+
 
     LoaderTask(
       updatesConfiguration,
@@ -228,6 +245,51 @@ class UpdatesController private constructor(
         }
       }
     ).start(context)
+  }
+
+  private fun clearAllUpdates(){
+    Log.i("ASDF","clearing all updates")
+    val allUpdates = databaseHolder.database.updateDao().loadAllUpdates()
+    databaseHolder.releaseDatabase()
+
+    databaseHolder.database.updateDao().deleteUpdates(allUpdates)
+    databaseHolder.releaseDatabase()
+
+    databaseHolder.database.assetDao().deleteUnusedAssets()
+    databaseHolder.releaseDatabase()
+  }
+
+  private fun isBuildDataConsistent(buildJSONString: String): Boolean {
+    Log.i("ASDF","inside isBuildDataConsistent")
+    val buildJSON = JSONObject(buildJSONString)
+
+    var essentialBuildDetails = mutableListOf(
+      buildJSON.get(UpdatesConfiguration.UPDATES_CONFIGURATION_RELEASE_CHANNEL_KEY) == updatesConfiguration.releaseChannel,
+      buildJSON.get(UpdatesConfiguration.UPDATES_CONFIGURATION_UPDATE_URL_KEY)?.let { Uri.parse(it.toString()) } == updatesConfiguration.updateUrl
+    )
+
+    val requestHeadersJSON = buildJSON.getJSONObject(UpdatesConfiguration.UPDATES_CONFIGURATION_REQUEST_HEADERS_KEY)
+    for((key,value) in updatesConfiguration.requestHeaders){
+      essentialBuildDetails.add(value == requestHeadersJSON[key])
+    }
+
+    return essentialBuildDetails.all { it }
+  }
+
+  private fun setBuildData(scopeKey: String){
+    val buildDataJSON = JSONObject()
+
+    buildDataJSON.put(UpdatesConfiguration.UPDATES_CONFIGURATION_RELEASE_CHANNEL_KEY,updatesConfiguration.releaseChannel)
+    buildDataJSON.put(UpdatesConfiguration.UPDATES_CONFIGURATION_UPDATE_URL_KEY,updatesConfiguration.updateUrl)
+
+    var requestHeadersJSON = JSONObject()
+    for ((key, value) in updatesConfiguration.requestHeaders){
+      requestHeadersJSON.put(key,value)
+    }
+    buildDataJSON.put(UpdatesConfiguration.UPDATES_CONFIGURATION_REQUEST_HEADERS_KEY,requestHeadersJSON)
+
+    databaseHolder.database.jsonDataDao()?.setJSONStringForKey( buildKey ,buildDataJSON.toString(), scopeKey )
+    databaseHolder.releaseDatabase()
   }
 
   @Synchronized

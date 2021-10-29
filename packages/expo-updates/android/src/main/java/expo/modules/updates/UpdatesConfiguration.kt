@@ -22,6 +22,8 @@ class UpdatesConfiguration {
     private set
   var runtimeVersion: String? = null
     private set
+  var channel: String? = null
+    private set
   var releaseChannel = UPDATES_CONFIGURATION_RELEASE_CHANNEL_DEFAULT_VALUE
     private set
   var launchWaitMs = UPDATES_CONFIGURATION_LAUNCH_WAIT_MS_DEFAULT_VALUE
@@ -34,7 +36,7 @@ class UpdatesConfiguration {
 
   val isMissingRuntimeVersion: Boolean
     get() = (runtimeVersion == null || runtimeVersion!!.isEmpty()) &&
-      (sdkVersion == null || sdkVersion!!.isEmpty())
+            (sdkVersion == null || sdkVersion!!.isEmpty())
 
   fun loadValuesFromMetadata(context: Context): UpdatesConfiguration {
     try {
@@ -65,6 +67,7 @@ class UpdatesConfiguration {
           "{}"
         )
       )
+      channel = requestHeaders["expo-channel-name"]
 
       // used only for expo-updates development
       hasEmbeddedUpdate = ai.metaData.getBoolean("expo.modules.updates.HAS_EMBEDDED_UPDATE", true)
@@ -97,6 +100,7 @@ class UpdatesConfiguration {
     if (requestHeadersFromMap != null) {
       requestHeaders = requestHeadersFromMap
     }
+    channel = requestHeaders["expo-channel-name"]
 
     val releaseChannelFromMap = map.readValueCheckingType<String>(UPDATES_CONFIGURATION_RELEASE_CHANNEL_KEY)
     if (releaseChannelFromMap != null) {
