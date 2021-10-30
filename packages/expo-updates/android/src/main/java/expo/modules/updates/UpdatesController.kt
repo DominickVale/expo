@@ -10,6 +10,7 @@ import com.facebook.react.ReactApplication
 import com.facebook.react.ReactNativeHost
 import com.facebook.react.bridge.Arguments
 import com.facebook.react.bridge.JSBundleLoader
+import expo.modules.jsonutils.getNullable
 import expo.modules.updates.db.DatabaseHolder
 import expo.modules.updates.db.Reaper
 import expo.modules.updates.db.UpdatesDatabase
@@ -263,16 +264,21 @@ class UpdatesController private constructor(
     Log.i("ASDF","inside isBuildDataConsistent")
     val buildJSON = JSONObject(buildJSONString)
 
+    Log.i("ASDF","rlease/c")
     var essentialBuildDetails = mutableListOf(
-      buildJSON.get(UpdatesConfiguration.UPDATES_CONFIGURATION_RELEASE_CHANNEL_KEY) == updatesConfiguration.releaseChannel,
+      buildJSON.getNullable<String>(UpdatesConfiguration.UPDATES_CONFIGURATION_RELEASE_CHANNEL_KEY) == updatesConfiguration.releaseChannel,
       buildJSON.get(UpdatesConfiguration.UPDATES_CONFIGURATION_UPDATE_URL_KEY)?.let { Uri.parse(it.toString()) } == updatesConfiguration.updateUrl
     )
 
     val requestHeadersJSON = buildJSON.getJSONObject(UpdatesConfiguration.UPDATES_CONFIGURATION_REQUEST_HEADERS_KEY)
+    if (requestHeadersJSON.length()!=updatesConfiguration.requestHeaders.size){
+      false
+    }
     for((key,value) in updatesConfiguration.requestHeaders){
-      essentialBuildDetails.add(value == requestHeadersJSON[key])
+      essentialBuildDetails.add(value == requestHeadersJSON.optString(key))
     }
 
+    Log.i("ASDF","essentialBuildDetails $essentialBuildDetails")
     return essentialBuildDetails.all { it }
   }
 
