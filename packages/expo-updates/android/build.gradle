@@ -94,9 +94,8 @@ dependencies {
   implementation project(':expo-json-utils')
   //noinspection GradleDynamicVersion
   implementation "com.facebook.react:react-native:+"
-    androidTestImplementation 'org.testng:testng:6.9.6'
 
-    def room_version = "2.1.0"
+  def room_version = "2.1.0"
 
   implementation "androidx.room:room-runtime:$room_version"
   kapt "androidx.room:room-compiler:$room_version"
