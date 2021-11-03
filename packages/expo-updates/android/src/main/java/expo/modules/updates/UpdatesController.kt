@@ -11,6 +11,7 @@ import com.facebook.react.ReactNativeHost
 import com.facebook.react.bridge.Arguments
 import com.facebook.react.bridge.JSBundleLoader
 import expo.modules.jsonutils.getNullable
+import expo.modules.updates.db.BuildData
 import expo.modules.updates.db.DatabaseHolder
 import expo.modules.updates.db.Reaper
 import expo.modules.updates.db.UpdatesDatabase
@@ -35,7 +36,6 @@ class UpdatesController private constructor(
   context: Context,
   var updatesConfiguration: UpdatesConfiguration
 ) {
-  var buildKey = "BUILD_KEY"
   private var reactNativeHost: WeakReference<ReactNativeHost>? = if (context is ReactApplication) {
     WeakReference((context as ReactApplication).reactNativeHost)
   } else {
@@ -177,18 +177,9 @@ class UpdatesController private constructor(
     }
 
     Log.i("ASDF","START")
-    val buildJSONString = databaseHolder.database.jsonDataDao()?.loadJSONStringForKey( buildKey ,scopeKey)
-    databaseHolder.releaseDatabase()
-
-    Log.i("ASDF","build data json: " + buildJSONString)
-    if(buildJSONString == null){
-        setBuildData(scopeKey)
-    } else if(!isBuildDataConsistent(buildJSONString)){
-        clearAllUpdates()
-        setBuildData(scopeKey)
-    }
-    Log.i("ASDF","DONE" )
-
+    val databaseLocal = database
+    BuildData.ensureBuildDataIsConsistent(updatesConfiguration, databaseLocal, scopeKey)
+    releaseDatabase()
 
     LoaderTask(
       updatesConfiguration,
@@ -246,56 +237,6 @@ class UpdatesController private constructor(
         }
       }
     ).start(context)
-  }
-
-  private fun clearAllUpdates(){
-    Log.i("ASDF","clearing all updates")
-    val allUpdates = databaseHolder.database.updateDao().loadAllUpdates()
-    databaseHolder.releaseDatabase()
-
-    databaseHolder.database.updateDao().deleteUpdates(allUpdates)
-    databaseHolder.releaseDatabase()
-
-    databaseHolder.database.assetDao().deleteUnusedAssets()
-    databaseHolder.releaseDatabase()
-  }
-
-  private fun isBuildDataConsistent(buildJSONString: String): Boolean {
-    Log.i("ASDF","inside isBuildDataConsistent")
-    val buildJSON = JSONObject(buildJSONString)
-
-    Log.i("ASDF","rlease/c")
-    var essentialBuildDetails = mutableListOf(
-      buildJSON.getNullable<String>(UpdatesConfiguration.UPDATES_CONFIGURATION_RELEASE_CHANNEL_KEY) == updatesConfiguration.releaseChannel,
-      buildJSON.get(UpdatesConfiguration.UPDATES_CONFIGURATION_UPDATE_URL_KEY)?.let { Uri.parse(it.toString()) } == updatesConfiguration.updateUrl
-    )
-
-    val requestHeadersJSON = buildJSON.getJSONObject(UpdatesConfiguration.UPDATES_CONFIGURATION_REQUEST_HEADERS_KEY)
-    if (requestHeadersJSON.length()!=updatesConfiguration.requestHeaders.size){
-      false
-    }
-    for((key,value) in updatesConfiguration.requestHeaders){
-      essentialBuildDetails.add(value == requestHeadersJSON.optString(key))
-    }
-
-    Log.i("ASDF","essentialBuildDetails $essentialBuildDetails")
-    return essentialBuildDetails.all { it }
-  }
-
-  private fun setBuildData(scopeKey: String){
-    val buildDataJSON = JSONObject()
-
-    buildDataJSON.put(UpdatesConfiguration.UPDATES_CONFIGURATION_RELEASE_CHANNEL_KEY,updatesConfiguration.releaseChannel)
-    buildDataJSON.put(UpdatesConfiguration.UPDATES_CONFIGURATION_UPDATE_URL_KEY,updatesConfiguration.updateUrl)
-
-    var requestHeadersJSON = JSONObject()
-    for ((key, value) in updatesConfiguration.requestHeaders){
-      requestHeadersJSON.put(key,value)
-    }
-    buildDataJSON.put(UpdatesConfiguration.UPDATES_CONFIGURATION_REQUEST_HEADERS_KEY,requestHeadersJSON)
-
-    databaseHolder.database.jsonDataDao()?.setJSONStringForKey( buildKey ,buildDataJSON.toString(), scopeKey )
-    databaseHolder.releaseDatabase()
   }
 
   @Synchronized
