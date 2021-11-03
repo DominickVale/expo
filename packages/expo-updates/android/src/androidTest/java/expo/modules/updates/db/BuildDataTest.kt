@@ -8,6 +8,7 @@ import expo.modules.updates.UpdatesConfiguration
 import expo.modules.updates.db.entity.UpdateEntity
 import io.mockk.spyk
 import io.mockk.verify
+import org.json.JSONObject
 import org.junit.Assert.*
 
 import org.junit.After
@@ -22,11 +23,11 @@ class BuildDataTest {
     private val scopeKey = "test"
     private val buildMapDefault = mapOf(
         "updateUrl" to Uri.parse("https://exp.host/@test/test"),
-        "releaseChannel" to "default"
+        "requestHeaders" to mapOf("expo-channel-name" to "test")
     )
     private val buildMapTestChannel = mapOf(
         "updateUrl" to Uri.parse("https://exp.host/@test/test"),
-        "releaseChannel" to "testChannel"
+        "requestHeaders" to mapOf("expo-channel-name" to "testTwo")
     )
     private val updatesConfigDefault = UpdatesConfiguration().loadValuesFromMap(
         buildMapDefault

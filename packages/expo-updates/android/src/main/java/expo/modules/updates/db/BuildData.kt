@@ -6,29 +6,48 @@ import expo.modules.jsonutils.getNullable
 import expo.modules.updates.UpdatesConfiguration
 import org.json.JSONObject
 
+/**
+ * The build data stored by the configuration is subject to change when
+ * a user updates the binary.
+ *
+ * This can lead to inconsistent update loading behavior, for
+ * example: https://github.com/expo/expo/issues/14372
+ *
+ * This singleton wipes the updates when any of the tracked build data
+ * changes. This leaves the user in the same situation as a fresh install.
+ *
+ * So far we only know that `releaseChannel` and
+ * `requestHeaders[expo-channel-name]` are dangerous to change, but have
+ * included a few more that both seem unlikely to change (so we clear
+ * the updates cache rarely) and likely to
+ * cause bugs when they do. The tracked fields are:
+ *
+ *   UPDATES_CONFIGURATION_RELEASE_CHANNEL_KEY
+ *   UPDATES_CONFIGURATION_UPDATE_URL_KEY
+ *
+ * and all of the values in json
+ *
+ *   UPDATES_CONFIGURATION_REQUEST_HEADERS_KEY
+ */
 object BuildData {
-    var buildKey = "BUILD_KEY"
+    var buildKey = "STATIC_BUILD_DATA"
 
     fun ensureBuildDataIsConsistent(
         updatesConfiguration: UpdatesConfiguration,
         database: UpdatesDatabase,
         scopeKey: String
     ){
-        Log.i("ASDF","start ensureBuildDataIsConsistnet")
         val buildJSON = getBuildData(database, scopeKey)
 
-        Log.i("ASDF", "build data json: $buildJSON")
-        if(buildJSON== null){
-            setBuildData(updatesConfiguration,database,scopeKey)
-        } else if(!isBuildDataConsistent(updatesConfiguration,buildJSON)){
+        if (buildJSON == null) {
+            setBuildData(updatesConfiguration, database, scopeKey)
+        } else if (!isBuildDataConsistent(updatesConfiguration, buildJSON)) {
             clearAllUpdates(database)
-            setBuildData(updatesConfiguration,database,scopeKey)
+            setBuildData(updatesConfiguration, database, scopeKey)
         }
-        Log.i("ASDF","DONE" )
     }
 
     fun clearAllUpdates(database: UpdatesDatabase){
-        Log.i("ASDF","clearing all updates")
         val allUpdates = database.updateDao().loadAllUpdates()
         database.updateDao().deleteUpdates(allUpdates)
         database.assetDao().deleteUnusedAssets()
@@ -38,32 +57,22 @@ object BuildData {
         updatesConfiguration: UpdatesConfiguration,
         buildJSON: JSONObject
     ): Boolean {
-        Log.i("ASDF","inside isBuildDataConsistent")
-        var essentialBuildDetails = mutableListOf(
-            buildJSON.getNullable<String>(UpdatesConfiguration.UPDATES_CONFIGURATION_RELEASE_CHANNEL_KEY) == updatesConfiguration.releaseChannel,
-            buildJSON.get(UpdatesConfiguration.UPDATES_CONFIGURATION_UPDATE_URL_KEY)?.let { Uri.parse(it.toString()) } == updatesConfiguration.updateUrl
-        )
-
         val requestHeadersJSON = buildJSON.getJSONObject(UpdatesConfiguration.UPDATES_CONFIGURATION_REQUEST_HEADERS_KEY)
-        if (requestHeadersJSON.length()!=updatesConfiguration.requestHeaders.size){
-            false
-        }
-        for((key,value) in updatesConfiguration.requestHeaders){
-            essentialBuildDetails.add(value == requestHeadersJSON.optString(key))
-        }
 
-        Log.i("ASDF","essentialBuildDetails $essentialBuildDetails")
-        return essentialBuildDetails.all { it }
+        if (requestHeadersJSON.length() != updatesConfiguration.requestHeaders.size) return false
+
+        return mutableListOf<Boolean>().apply{
+            add(buildJSON.getNullable<String>(UpdatesConfiguration.UPDATES_CONFIGURATION_RELEASE_CHANNEL_KEY) == updatesConfiguration.releaseChannel)
+            add(buildJSON.get(UpdatesConfiguration.UPDATES_CONFIGURATION_UPDATE_URL_KEY)?.let { Uri.parse(it.toString()) } == updatesConfiguration.updateUrl)
+            for((key, value) in updatesConfiguration.requestHeaders){
+                add(value == requestHeadersJSON.optString(key))
+            }
+        }.all { it }
     }
 
     fun getBuildData(database: UpdatesDatabase, scopeKey: String): JSONObject? {
-        val buildJSONString = database.jsonDataDao()?.loadJSONStringForKey( buildKey ,scopeKey)
-
-        return if(buildJSONString==null){
-            null
-        }else{
-            JSONObject(buildJSONString)
-        }
+        val buildJSONString = database.jsonDataDao()?.loadJSONStringForKey(buildKey, scopeKey)
+        return if (buildJSONString == null) null else JSONObject(buildJSONString)
     }
 
     fun setBuildData(
@@ -71,17 +80,16 @@ object BuildData {
         database: UpdatesDatabase,
         scopeKey: String
     ) {
-        val buildDataJSON = JSONObject()
-
-        buildDataJSON.put(UpdatesConfiguration.UPDATES_CONFIGURATION_RELEASE_CHANNEL_KEY,updatesConfiguration.releaseChannel)
-        buildDataJSON.put(UpdatesConfiguration.UPDATES_CONFIGURATION_UPDATE_URL_KEY,updatesConfiguration.updateUrl)
-
-        var requestHeadersJSON = JSONObject()
-        for ((key, value) in updatesConfiguration.requestHeaders){
-            requestHeadersJSON.put(key,value)
+        val requestHeadersJSON = JSONObject().apply {
+            for ((key, value) in updatesConfiguration.requestHeaders) put(key, value)
         }
-        buildDataJSON.put(UpdatesConfiguration.UPDATES_CONFIGURATION_REQUEST_HEADERS_KEY,requestHeadersJSON)
 
-        database.jsonDataDao()?.setJSONStringForKey( buildKey ,buildDataJSON.toString(), scopeKey )
+        val buildDataJSON = JSONObject().apply {
+            put(UpdatesConfiguration.UPDATES_CONFIGURATION_RELEASE_CHANNEL_KEY, updatesConfiguration.releaseChannel)
+            put(UpdatesConfiguration.UPDATES_CONFIGURATION_UPDATE_URL_KEY, updatesConfiguration.updateUrl)
+            put(UpdatesConfiguration.UPDATES_CONFIGURATION_REQUEST_HEADERS_KEY, requestHeadersJSON)
+        }
+
+        database.jsonDataDao()?.setJSONStringForKey(buildKey, buildDataJSON.toString(), scopeKey)
     }
 }

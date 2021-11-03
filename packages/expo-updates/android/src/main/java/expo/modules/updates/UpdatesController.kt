@@ -176,7 +176,6 @@ class UpdatesController private constructor(
       isEmergencyLaunch = true
     }
 
-    Log.i("ASDF","START")
     val databaseLocal = database
     BuildData.ensureBuildDataIsConsistent(updatesConfiguration, databaseLocal, scopeKey)
     releaseDatabase()
