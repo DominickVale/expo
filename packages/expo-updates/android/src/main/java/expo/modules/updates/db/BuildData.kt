@@ -38,7 +38,9 @@ object BuildData {
     scopeKey: String
   ) {
     val buildJSON = getBuildData(database, scopeKey)
-    if (buildJSON == null || !isBuildDataConsistent(updatesConfiguration, buildJSON)) {
+    if (buildJSON == null) {
+      setBuildData(updatesConfiguration, database, scopeKey)
+    } else if (!isBuildDataConsistent(updatesConfiguration, buildJSON)) {
       clearAllReadyUpdates(database)
       setBuildData(updatesConfiguration, database, scopeKey)
     }

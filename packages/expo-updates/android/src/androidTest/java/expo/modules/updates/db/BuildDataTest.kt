@@ -58,7 +58,7 @@ class BuildDataTest {
 
     val buildDataJSON = spyBuildData.getBuildData(db, scopeKey)
     assertNotNull(buildDataJSON)
-    verify(exactly = 1) { spyBuildData.clearAllReadyUpdates(any()) }
+    verify(exactly = 0) { spyBuildData.clearAllReadyUpdates(any()) }
     verify(exactly = 1) { spyBuildData.setBuildData(any(), any(), any()) }
   }
 
