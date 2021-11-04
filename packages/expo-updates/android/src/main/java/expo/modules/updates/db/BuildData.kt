@@ -1,9 +1,9 @@
 package expo.modules.updates.db
 
 import android.net.Uri
-import android.util.Log
 import expo.modules.jsonutils.getNullable
 import expo.modules.updates.UpdatesConfiguration
+import expo.modules.updates.db.enums.UpdateStatus
 import org.json.JSONObject
 
 /**
@@ -38,19 +38,15 @@ object BuildData {
         scopeKey: String
     ){
         val buildJSON = getBuildData(database, scopeKey)
-
-        if (buildJSON == null) {
-            setBuildData(updatesConfiguration, database, scopeKey)
-        } else if (!isBuildDataConsistent(updatesConfiguration, buildJSON)) {
-            clearAllUpdates(database)
+        if (buildJSON == null || !isBuildDataConsistent(updatesConfiguration, buildJSON)) {
+            clearAllReadyUpdates(database)
             setBuildData(updatesConfiguration, database, scopeKey)
         }
     }
 
-    fun clearAllUpdates(database: UpdatesDatabase){
-        val allUpdates = database.updateDao().loadAllUpdates()
+    fun clearAllReadyUpdates(database: UpdatesDatabase){
+        val allUpdates = database.updateDao().loadAllUpdatesWithStatus(UpdateStatus.READY)
         database.updateDao().deleteUpdates(allUpdates)
-        database.assetDao().deleteUnusedAssets()
     }
 
     fun isBuildDataConsistent(
