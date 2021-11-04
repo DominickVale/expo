@@ -10,7 +10,6 @@ import com.facebook.react.ReactApplication
 import com.facebook.react.ReactNativeHost
 import com.facebook.react.bridge.Arguments
 import com.facebook.react.bridge.JSBundleLoader
-import expo.modules.jsonutils.getNullable
 import expo.modules.updates.db.BuildData
 import expo.modules.updates.db.DatabaseHolder
 import expo.modules.updates.db.Reaper
@@ -28,7 +27,6 @@ import expo.modules.updates.loader.LoaderTask.LoaderTaskCallback
 import expo.modules.updates.manifest.UpdateManifest
 import expo.modules.updates.selectionpolicy.SelectionPolicy
 import expo.modules.updates.selectionpolicy.SelectionPolicyFactory
-import org.json.JSONObject
 import java.io.File
 import java.lang.ref.WeakReference
 
