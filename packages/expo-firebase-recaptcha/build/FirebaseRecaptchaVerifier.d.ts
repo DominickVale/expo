@@ -4,4 +4,5 @@ export default class FirebaseRecaptchaVerifier implements FirebaseAuthApplicatio
     constructor(token: string);
     get type(): string;
     verify(): Promise<string>;
+    _reset(): void;
 }

@@ -84,6 +84,9 @@ export default class FirebaseRecaptchaVerifierModal
     });
   }
 
+  // see: https://github.com/expo/expo/issues/14780
+  _reset(): void {}
+
   private onVisibleLoad = () => {
     this.setState({
       visibleLoaded: true,
