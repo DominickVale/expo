@@ -3,7 +3,6 @@ package expo.modules.updates.db
 import android.net.Uri
 import expo.modules.jsonutils.getNullable
 import expo.modules.updates.UpdatesConfiguration
-import expo.modules.updates.db.enums.UpdateStatus
 import org.json.JSONObject
 
 /**
@@ -41,13 +40,13 @@ object BuildData {
     if (buildJSON == null) {
       setBuildData(updatesConfiguration, database, scopeKey)
     } else if (!isBuildDataConsistent(updatesConfiguration, buildJSON)) {
-      clearAllReadyUpdates(database)
+      clearAllUpdates(database)
       setBuildData(updatesConfiguration, database, scopeKey)
     }
   }
 
-  fun clearAllReadyUpdates(database: UpdatesDatabase) {
-    val allUpdates = database.updateDao().loadAllUpdatesWithStatus(UpdateStatus.READY)
+  fun clearAllUpdates(database: UpdatesDatabase) {
+    val allUpdates = database.updateDao().loadAllUpdates()
     database.updateDao().deleteUpdates(allUpdates)
   }
 
