@@ -93,7 +93,7 @@ export declare class Sound implements Playback {
         toleranceMillisAfter?: number;
     }) => Promise<AVPlaybackStatus>;
     setRateAsync: (rate: number, shouldCorrectPitch: boolean, pitchCorrectionQuality?: PitchCorrectionQuality) => Promise<AVPlaybackStatus>;
-    setVolumeAsync: (volume: number) => Promise<AVPlaybackStatus>;
+    setVolumeAsync: (volume: number, pan?: number) => Promise<AVPlaybackStatus>;
     setIsMutedAsync: (isMuted: boolean) => Promise<AVPlaybackStatus>;
     setIsLoopingAsync: (isLooping: boolean) => Promise<AVPlaybackStatus>;
     setProgressUpdateIntervalAsync: (progressUpdateIntervalMillis: number) => Promise<AVPlaybackStatus>;
