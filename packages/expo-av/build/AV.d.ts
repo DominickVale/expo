@@ -28,7 +28,7 @@ export interface Playback extends AV {
         toleranceMillisAfter?: number;
     }): Promise<AVPlaybackStatus>;
     setRateAsync(rate: number, shouldCorrectPitch: boolean, pitchCorrectionQuality?: PitchCorrectionQuality): Promise<AVPlaybackStatus>;
-    setVolumeAsync(volume: number, pan?: number): Promise<AVPlaybackStatus>;
+    setVolumeAsync(volume: number, audioPan?: number): Promise<AVPlaybackStatus>;
     setIsMutedAsync(isMuted: boolean): Promise<AVPlaybackStatus>;
     setIsLoopingAsync(isLooping: boolean): Promise<AVPlaybackStatus>;
     setProgressUpdateIntervalAsync(progressUpdateIntervalMillis: number): Promise<AVPlaybackStatus>;
@@ -50,7 +50,7 @@ export declare const PlaybackMixin: {
         toleranceMillisAfter?: number;
     }): Promise<AVPlaybackStatus>;
     setRateAsync(rate: number, shouldCorrectPitch?: boolean, pitchCorrectionQuality?: PitchCorrectionQuality): Promise<AVPlaybackStatus>;
-    setVolumeAsync(volume: number, pan?: number | undefined): Promise<AVPlaybackStatus>;
+    setVolumeAsync(volume: number, audioPan?: number | undefined): Promise<AVPlaybackStatus>;
     setIsMutedAsync(isMuted: boolean): Promise<AVPlaybackStatus>;
     setIsLoopingAsync(isLooping: boolean): Promise<AVPlaybackStatus>;
     setProgressUpdateIntervalAsync(progressUpdateIntervalMillis: number): Promise<AVPlaybackStatus>;

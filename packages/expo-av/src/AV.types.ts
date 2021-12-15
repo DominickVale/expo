@@ -53,7 +53,7 @@ export type AVPlaybackStatus =
       rate: number;
       shouldCorrectPitch: boolean;
       volume: number;
-      pan: number;
+      audioPan: number;
       isMuted: boolean;
       isLooping: boolean;
 
@@ -70,7 +70,7 @@ export type AVPlaybackStatusToSet = {
   rate?: number;
   shouldCorrectPitch?: boolean;
   volume?: number;
-  pan?: number;
+  audioPan?: number;
   isMuted?: boolean;
   isLooping?: boolean;
   pitchCorrectionQuality?: PitchCorrectionQuality;
