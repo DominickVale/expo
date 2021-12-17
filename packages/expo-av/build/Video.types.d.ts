@@ -40,6 +40,7 @@ export declare type VideoProps = {
     rate?: number;
     shouldCorrectPitch?: boolean;
     volume?: number;
+    audioPan?: number;
     isMuted?: boolean;
     isLooping?: boolean;
     scaleX?: number;
