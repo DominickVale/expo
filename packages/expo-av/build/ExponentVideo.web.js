@@ -1,6 +1,7 @@
 import * as React from 'react';
 import createElement from 'react-native-web/dist/exports/createElement';
 import ExponentAV from './ExponentAV';
+import { avWebAudioContext } from './ExponentAV.web';
 import { addFullscreenListener } from './FullscreenUtils.web';
 export const FULLSCREEN_UPDATE_PLAYER_WILL_PRESENT = 0;
 export const FULLSCREEN_UPDATE_PLAYER_DID_PRESENT = 1;
@@ -13,6 +14,8 @@ export const IOS_FULLSCREEN_UPDATE_PLAYER_DID_DISMISS = FULLSCREEN_UPDATE_PLAYER
 const Video = React.forwardRef((props, ref) => createElement('video', { ...props, ref }));
 export default class ExponentVideo extends React.Component {
     _video;
+    _source;
+    _panner;
     _removeFullscreenListener;
     componentWillUnmount() {
         this._removeFullscreenListener?.();
@@ -85,6 +88,13 @@ export default class ExponentVideo extends React.Component {
         this._removeFullscreenListener?.();
         if (ref) {
             this._video = ref;
+            // Fix for remote media loading error: `MediaElementAudioSource outputs zeros due to CORS access restrictions`
+            // N.B: This doesn't work if the CORS header ‘Access-Control-Allow-Origin’ is missing on the remote.
+            this._video.crossOrigin = 'anonymous';
+            this._video.nodeSource = avWebAudioContext.createMediaElementSource(this._video);
+            this._video.panner = avWebAudioContext.createStereoPanner();
+            this._video.nodeSource.connect(this._video.panner);
+            this._video.panner.connect(avWebAudioContext.destination);
             this._removeFullscreenListener = addFullscreenListener(this._video, this.onFullscreenChange);
             this.onStatusUpdate();
         }

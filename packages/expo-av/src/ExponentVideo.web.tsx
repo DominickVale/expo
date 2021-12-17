@@ -4,6 +4,7 @@ import createElement from 'react-native-web/dist/exports/createElement';
 
 import { AVPlaybackNativeSource, AVPlaybackStatus, AVPlaybackStatusToSet } from './AV';
 import ExponentAV from './ExponentAV';
+import { AVMedia, avWebAudioContext } from './ExponentAV.web'
 import { addFullscreenListener } from './FullscreenUtils.web';
 import { VideoFullscreenUpdateEvent, VideoReadyForDisplayEvent } from './Video.types';
 
@@ -42,12 +43,15 @@ export const IOS_FULLSCREEN_UPDATE_PLAYER_DID_PRESENT = FULLSCREEN_UPDATE_PLAYER
 export const IOS_FULLSCREEN_UPDATE_PLAYER_WILL_DISMISS = FULLSCREEN_UPDATE_PLAYER_WILL_DISMISS;
 export const IOS_FULLSCREEN_UPDATE_PLAYER_DID_DISMISS = FULLSCREEN_UPDATE_PLAYER_DID_DISMISS;
 
-const Video: any = React.forwardRef<HTMLVideoElement, ExponentVideoProps>((props, ref) =>
+export type AVVideo = AVMedia & HTMLVideoElement;
+const Video: any = React.forwardRef<AVVideo, ExponentVideoProps>((props, ref) =>
   createElement('video', { ...props, ref })
 );
 
 export default class ExponentVideo extends React.Component<ExponentVideoProps> {
-  _video?: HTMLVideoElement;
+  _video?: AVVideo;
+  _source?: MediaElementAudioSourceNode;
+  _panner?: StereoPannerNode;
   _removeFullscreenListener?: () => any;
 
   componentWillUnmount() {
@@ -127,10 +131,17 @@ export default class ExponentVideo extends React.Component<ExponentVideoProps> {
     this.onStatusUpdate();
   };
 
-  onRef = (ref: HTMLVideoElement | null) => {
+  onRef = (ref: AVVideo | null) => {
     this._removeFullscreenListener?.();
     if (ref) {
       this._video = ref;
+      // Fix for remote media loading error: `MediaElementAudioSource outputs zeros due to CORS access restrictions`
+      // N.B: This doesn't work if the CORS header ‘Access-Control-Allow-Origin’ is missing on the remote.
+      this._video.crossOrigin = 'anonymous';
+      this._video.nodeSource = avWebAudioContext.createMediaElementSource(this._video);
+      this._video.panner = avWebAudioContext.createStereoPanner();
+      this._video.nodeSource.connect(this._video.panner);
+      this._video.panner.connect(avWebAudioContext.destination);
       this._removeFullscreenListener = addFullscreenListener(this._video, this.onFullscreenChange);
       this.onStatusUpdate();
     } else {

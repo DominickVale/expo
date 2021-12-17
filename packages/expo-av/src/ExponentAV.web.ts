@@ -4,6 +4,33 @@ import type { AVPlaybackNativeSource, AVPlaybackStatus, AVPlaybackStatusToSet } 
 import type { RecordingStatus } from './Audio/Recording.types';
 import { RECORDING_OPTIONS_PRESET_HIGH_QUALITY } from './Audio/RecordingConstants';
 
+// Should the audio context be provided by the user?
+export const avWebAudioContext: AudioContext = new (window.AudioContext ||
+  // @ts-ignore
+  window.webkitAudioContext)();
+
+export interface AVMedia extends HTMLMediaElement {
+  panner: StereoPannerNode;
+  nodeSource: MediaElementAudioSourceNode;
+}
+
+class AVSound extends Audio implements AVMedia {
+  panner: StereoPannerNode;
+  nodeSource: MediaElementAudioSourceNode;
+
+  constructor(src?: string) {
+    super(src);
+    // Fix for remote media loading error: `MediaElementAudioSource outputs zeros due to CORS access restrictions`
+    // N.B: This doesn't work if the CORS header ‘Access-Control-Allow-Origin’ is missing on the remote.
+    // should we make the web audio implementation optional?
+    this.crossOrigin = 'anonymous';
+    this.nodeSource = avWebAudioContext.createMediaElementSource(this);
+    this.panner = avWebAudioContext.createStereoPanner();
+    this.nodeSource.connect(this.panner);
+    this.panner.connect(avWebAudioContext.destination);
+  }
+}
+
 async function getPermissionWithQueryAsync(
   name: PermissionNameWithAdditionalValues
 ): Promise<PermissionStatus | null> {
@@ -52,7 +79,7 @@ function getUserMedia(constraints: MediaStreamConstraints): Promise<MediaStream>
   });
 }
 
-function getStatusFromMedia(media?: HTMLMediaElement): AVPlaybackStatus {
+function getStatusFromMedia(media?: AVMedia): AVPlaybackStatus {
   if (!media) {
     return {
       isLoaded: false,
@@ -83,7 +110,7 @@ function getStatusFromMedia(media?: HTMLMediaElement): AVPlaybackStatus {
     // TODO: Bacon: This seems too complicated right now: https://webaudio.github.io/web-audio-api/#dom-biquadfilternode-frequency
     shouldCorrectPitch: false,
     volume: media.volume,
-    audioPan: 0,
+    audioPan: media.panner.pan.value,
     isMuted: media.muted,
     isLooping: media.loop,
     didJustFinish: media.ended,
@@ -92,10 +119,10 @@ function getStatusFromMedia(media?: HTMLMediaElement): AVPlaybackStatus {
   return status;
 }
 
-function setStatusForMedia(
-  media: HTMLMediaElement,
-  status: AVPlaybackStatusToSet
-): AVPlaybackStatus {
+function setStatusForMedia(media: AVMedia, status: AVPlaybackStatusToSet): AVPlaybackStatus {
+  if (avWebAudioContext.state === 'suspended') {
+    avWebAudioContext.resume();
+  }
   if (status.positionMillis !== undefined) {
     media.currentTime = status.positionMillis / 1000;
   }
@@ -127,6 +154,9 @@ function setStatusForMedia(
   if (status.isMuted !== undefined) {
     media.muted = status.isMuted;
   }
+  if (status.audioPan !== undefined) {
+    media.panner.pan.value = status.audioPan;
+  }
   if (status.isLooping !== undefined) {
     media.loop = status.isLooping;
   }
@@ -151,43 +181,40 @@ export default {
   get name(): string {
     return 'ExponentAV';
   },
-  async getStatusForVideo(element: HTMLMediaElement): Promise<AVPlaybackStatus> {
+  async getStatusForVideo(element: AVMedia): Promise<AVPlaybackStatus> {
     return getStatusFromMedia(element);
   },
   async loadForVideo(
-    element: HTMLMediaElement,
+    element: AVMedia,
     nativeSource: AVPlaybackNativeSource,
     fullInitialStatus: AVPlaybackStatusToSet
   ): Promise<AVPlaybackStatus> {
     return getStatusFromMedia(element);
   },
-  async unloadForVideo(element: HTMLMediaElement): Promise<AVPlaybackStatus> {
+  async unloadForVideo(element: AVMedia): Promise<AVPlaybackStatus> {
     return getStatusFromMedia(element);
   },
   async setStatusForVideo(
-    element: HTMLMediaElement,
+    element: AVMedia,
     status: AVPlaybackStatusToSet
   ): Promise<AVPlaybackStatus> {
     return setStatusForMedia(element, status);
   },
-  async replayVideo(
-    element: HTMLMediaElement,
-    status: AVPlaybackStatusToSet
-  ): Promise<AVPlaybackStatus> {
+  async replayVideo(element: AVMedia, status: AVPlaybackStatusToSet): Promise<AVPlaybackStatus> {
     return setStatusForMedia(element, status);
   },
   /* Audio */
   async setAudioMode() {},
   async setAudioIsEnabled() {},
-  async getStatusForSound(element: HTMLMediaElement) {
+  async getStatusForSound(element: AVMedia) {
     return getStatusFromMedia(element);
   },
   async loadForSound(
     nativeSource: string | { uri: string; [key: string]: any },
     fullInitialStatus: AVPlaybackStatusToSet
-  ): Promise<[HTMLMediaElement, AVPlaybackStatus]> {
+  ): Promise<[AVMedia, AVPlaybackStatus]> {
     const source = typeof nativeSource === 'string' ? nativeSource : nativeSource.uri;
-    const media = new Audio(source);
+    const media = new AVSound(source);
 
     media.ontimeupdate = () => {
       SyntheticPlatformEmitter.emit('didUpdatePlaybackStatus', {
@@ -207,22 +234,19 @@ export default {
 
     return [media, status];
   },
-  async unloadForSound(element: HTMLMediaElement) {
+  async unloadForSound(element: AVMedia) {
     element.pause();
     element.removeAttribute('src');
     element.load();
     return getStatusFromMedia(element);
   },
   async setStatusForSound(
-    element: HTMLMediaElement,
+    element: AVMedia,
     status: AVPlaybackStatusToSet
   ): Promise<AVPlaybackStatus> {
     return setStatusForMedia(element, status);
   },
-  async replaySound(
-    element: HTMLMediaElement,
-    status: AVPlaybackStatusToSet
-  ): Promise<AVPlaybackStatus> {
+  async replaySound(element: AVMedia, status: AVPlaybackStatusToSet): Promise<AVPlaybackStatus> {
     return setStatusForMedia(element, status);
   },
 

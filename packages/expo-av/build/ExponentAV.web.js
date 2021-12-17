@@ -1,5 +1,24 @@
 import { PermissionStatus, SyntheticPlatformEmitter } from 'expo-modules-core';
 import { RECORDING_OPTIONS_PRESET_HIGH_QUALITY } from './Audio/RecordingConstants';
+// Should the audio context be provided by the user?
+export const avWebAudioContext = new (window.AudioContext ||
+    // @ts-ignore
+    window.webkitAudioContext)();
+class AVSound extends Audio {
+    panner;
+    nodeSource;
+    constructor(src) {
+        super(src);
+        // Fix for remote media loading error: `MediaElementAudioSource outputs zeros due to CORS access restrictions`
+        // N.B: This doesn't work if the CORS header ‘Access-Control-Allow-Origin’ is missing on the remote.
+        // should we make the web audio implementation optional?
+        this.crossOrigin = 'anonymous';
+        this.nodeSource = avWebAudioContext.createMediaElementSource(this);
+        this.panner = avWebAudioContext.createStereoPanner();
+        this.nodeSource.connect(this.panner);
+        this.panner.connect(avWebAudioContext.destination);
+    }
+}
 async function getPermissionWithQueryAsync(name) {
     if (!navigator || !navigator.permissions || !navigator.permissions.query)
         return null;
@@ -69,7 +88,7 @@ function getStatusFromMedia(media) {
         // TODO: Bacon: This seems too complicated right now: https://webaudio.github.io/web-audio-api/#dom-biquadfilternode-frequency
         shouldCorrectPitch: false,
         volume: media.volume,
-        audioPan: 0,
+        audioPan: media.panner.pan.value,
         isMuted: media.muted,
         isLooping: media.loop,
         didJustFinish: media.ended,
@@ -77,6 +96,9 @@ function getStatusFromMedia(media) {
     return status;
 }
 function setStatusForMedia(media, status) {
+    if (avWebAudioContext.state === 'suspended') {
+        avWebAudioContext.resume();
+    }
     if (status.positionMillis !== undefined) {
         media.currentTime = status.positionMillis / 1000;
     }
@@ -108,6 +130,9 @@ function setStatusForMedia(media, status) {
     }
     if (status.isMuted !== undefined) {
         media.muted = status.isMuted;
+    }
+    if (status.audioPan !== undefined) {
+        media.panner.pan.value = status.audioPan;
     }
     if (status.isLooping !== undefined) {
         media.loop = status.isLooping;
@@ -152,7 +177,7 @@ export default {
     },
     async loadForSound(nativeSource, fullInitialStatus) {
         const source = typeof nativeSource === 'string' ? nativeSource : nativeSource.uri;
-        const media = new Audio(source);
+        const media = new AVSound(source);
         media.ontimeupdate = () => {
             SyntheticPlatformEmitter.emit('didUpdatePlaybackStatus', {
                 key: media,

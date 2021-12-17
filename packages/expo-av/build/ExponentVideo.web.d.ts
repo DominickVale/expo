@@ -1,6 +1,7 @@
 import * as React from 'react';
 import { ViewProps } from 'react-native';
 import { AVPlaybackNativeSource, AVPlaybackStatus, AVPlaybackStatusToSet } from './AV';
+import { AVMedia } from './ExponentAV.web';
 import { VideoFullscreenUpdateEvent, VideoReadyForDisplayEvent } from './Video.types';
 declare type ExponentVideoProps = {
     source: AVPlaybackNativeSource | null;
@@ -44,8 +45,11 @@ export declare const IOS_FULLSCREEN_UPDATE_PLAYER_WILL_PRESENT = 0;
 export declare const IOS_FULLSCREEN_UPDATE_PLAYER_DID_PRESENT = 1;
 export declare const IOS_FULLSCREEN_UPDATE_PLAYER_WILL_DISMISS = 2;
 export declare const IOS_FULLSCREEN_UPDATE_PLAYER_DID_DISMISS = 3;
+export declare type AVVideo = AVMedia & HTMLVideoElement;
 export default class ExponentVideo extends React.Component<ExponentVideoProps> {
-    _video?: HTMLVideoElement;
+    _video?: AVVideo;
+    _source?: MediaElementAudioSourceNode;
+    _panner?: StereoPannerNode;
     _removeFullscreenListener?: () => any;
     componentWillUnmount(): void;
     onFullscreenChange: (isFullscreen: boolean) => void;
@@ -59,7 +63,7 @@ export default class ExponentVideo extends React.Component<ExponentVideoProps> {
     onLoadedMetadata: () => void;
     onCanPlay: (event: any) => void;
     onStalled: () => void;
-    onRef: (ref: HTMLVideoElement | null) => void;
+    onRef: (ref: AVVideo | null) => void;
     render(): JSX.Element;
 }
 export {};
